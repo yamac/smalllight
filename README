@@ -95,7 +95,7 @@ The pattern string specifies as KEY=VALUE format in small_light().
     inhexif   inherit EXIF [char] *2
               (n:none y:inherit default:n)
     info      add transformation description to HTTP Header [number]
-              (0:none 1:add 初期値:0)
+              (0:none 1:add default:0)
     p         pattern name(see below)
     e         engine name(imlib2,imagemagick,dummy) [char]
     sharpen   e=imlib2,sharpen=radius
