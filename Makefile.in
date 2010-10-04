@@ -1,0 +1,37 @@
+APXS=@APXS@
+PACKAGE=@PACKAGE_NAME@
+VERSION=@PACKAGE_VERSION@
+PACKAGEDIR=$(PACKAGE)-$(VERSION)
+PACKAGETGZ=$(PACKAGE)-$(VERSION).tar.gz
+
+ifneq ("@IMLIB2_CONFIG@","")
+    IMLIB2_INCLUDES=`@IMLIB2_CONFIG@ --cppflags`
+    IMLIB2_LIBS=`@IMLIB2_CONFIG@ --libs`
+endif
+ifneq ("@WAND_CONFIG@","")
+    WAND_INCLUDES=`@WAND_CONFIG@ --cppflags`
+    WAND_LIBS=`@WAND_CONFIG@ --libs`
+endif
+CFLAGS=@CFLAGS_IMLIB2@ @CFLAGS_WAND@
+
+all: 
+	$(APXS) -c "$(CFLAGS) $(IMLIB2_INCLUDES) $(IMLIB2_LIBS) $(WAND_INCLUDES) $(WAND_LIBS)" \
+	mod_small_light.c mod_small_light_*.c
+
+install: 
+	$(APXS) -ia mod_small_light.la
+
+clean:
+	rm -rf *.o *.a *.so *.lo *.la *.slo a.out .libs .deps
+
+distclean: clean
+	rm -rf Makefile config.cache config.log config.status autom4te.cache $(PACKAGETGZ) $(PACKAGEDIR)
+
+dist:
+	mkdir $(PACKAGEDIR)
+	autoconf
+	cp mod_small_light.c mod_small_light.h mod_small_light_*.c mod_small_light_*.h $(PACKAGEDIR)
+	cp configure configure.in Makefile.in README README.* $(PACKAGEDIR)
+	tar cvzf $(PACKAGETGZ) $(PACKAGEDIR)
+	rm -rf $(PACKAGEDIR)
+
