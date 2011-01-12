@@ -5,7 +5,7 @@ PACKAGEDIR=$(PACKAGE)-$(VERSION)
 PACKAGETGZ=$(PACKAGE)-$(VERSION).tar.gz
 
 ifneq ("@IMLIB2_CONFIG@","")
-    IMLIB2_INCLUDES=`@IMLIB2_CONFIG@ --cppflags`
+    IMLIB2_INCLUDES=`@IMLIB2_CONFIG@ --cflags`
     IMLIB2_LIBS=`@IMLIB2_CONFIG@ --libs`
 endif
 ifneq ("@WAND_CONFIG@","")
@@ -15,7 +15,7 @@ endif
 CFLAGS=@CFLAGS_IMLIB2@ @CFLAGS_WAND@
 
 all: 
-	$(APXS) -c "$(CFLAGS) $(IMLIB2_INCLUDES) $(IMLIB2_LIBS) $(WAND_INCLUDES) $(WAND_LIBS)" \
+	$(APXS) -c $(CFLAGS) $(IMLIB2_INCLUDES) $(IMLIB2_LIBS) $(WAND_INCLUDES) $(WAND_LIBS) \
 	mod_small_light.c mod_small_light_*.c
 
 install: 
