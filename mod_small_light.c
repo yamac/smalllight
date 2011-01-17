@@ -123,6 +123,12 @@ static apr_status_t small_light_filter(ap_filter_t *f, apr_bucket_brigade *bb)
             return ap_pass_brigade(f->next, bb);
         }
 
+        // No need to process HEAD or 204/304, by mod_deflate.
+        if (APR_BUCKET_IS_EOS(APR_BRIGADE_FIRST(bb))) {
+            ap_remove_output_filter(f);
+            return ap_pass_brigade(f->next, bb);
+        }
+
         // initialize context.
         f->ctx = ctx = (small_light_module_ctx_t *)apr_pcalloc(r->pool, sizeof(small_light_module_ctx_t));
 
