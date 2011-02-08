@@ -1,0 +1,141 @@
+mod_small_light - Dynamic image transformation module for Apache2
+==============================================================================
+
+The mod_small_light provides a dynamic image transformation.
+
+
+Build
+-----
+
+Simply run the configure script for analyzing your environment automatically.
+
+ ./configure
+ 
+Or you can specify the location of each imlib2-config, Wand-config and apxs
+by using --with options.
+(currentry '--with-apxs' is required)
+
+ ./configure --with-imlib2-config=/usr/local/imlib2/bin/imlib2-config
+ ./configure --with-Wand-config=/usr/local/ImageMagick/bin/Wand-config
+ ./configure --with-apxs=/usr/local/apache2/bin/apxs
+
+Or if you don't have a plan to use imlib2 or Wand, you can specify --without
+options.
+
+ ./configure --without-imlib2
+ ./configure --without-Wand
+
+And then, make and make install to complete installation.
+
+ make
+ sudo make install
+
+
+Usage
+-----
+
+This module is implemented as an output filter. Use SetOutputFilter directive
+to activate it.
+
+
+* for local use.
+
+   RewriteRule ^/images/(.+)$ /your/local/images/$1 [L]
+   RewriteRule ^/resize/(.+)$ /small_light(dw=400,dh=400,ds=s)/$1 [P,L]
+   RewriteRule ^/small_light[^/]*/(.+)$ /your/local/images/$1
+   <LocationMatch ^/small_light[^/]*/>
+     SetOutputFilter SMALL_LIGHT
+   </LocationMatch>
+
+* for dedicated use.
+
+   RewriteRule ^/images/(.+)$ http://img.example.com/your/images/$1 [P,L]
+   RewriteRule ^/resize/(.+)$ /small_light(dw=400,dh=400,ds=s)/$1 [P,L]
+   RewriteRule ^/small_light[^/]*/(.+)$ http://img.example.com/your/images/$1 [P,L]
+   <LocationMatch ^/small_light[^/]*/>
+     SetOutputFilter SMALL_LIGHT
+   </LocationMatch>
+
+
+After you set the output filter, your apache transforms an image by
+transformation pattern specified in the URI.
+
+
+Pattern string
+--------------
+
+The pattern string specifies as KEY=VALUE format in small_light().
+
+    KEY       VALUE [TYPE OF VALUE]
+-------------------------------------------------------------------
+    sx        source x [coord]
+    sy        source y [coord]
+    sw        source width [coord]
+    sh        source height [coord]
+    dx        destination x [coord]
+    dy        destination y [coord]
+    dw        destination width [coord]
+    dh        destination height [coord]
+    da        destination aspect ratio control [char]
+              (s=short-edge l=long-edge n=nope default:l)
+    ds        destination scaling control [char]
+              (s=force scale n=no scale small image default:n)
+    cw        canvas width [number]
+    ch        canvas height [number]
+    cc        canvas color(default:000000) [color]
+    bw        border width [number]
+    bh        border height [number]
+    bc        border color(default:000000) [color]
+    pt        pass through control [char]
+              (ptss:pass through when size of src-image < dest
+               ptls:pass through when size of src-image > dest
+               n:none default:n)
+    q         quality(affects only jpeg or png, 0-100) [number]
+    of        output format(jpeg,png,tiff,gif) [char] *1
+    inhexif   inherit EXIF [char] *2
+              (n:none y:inherit default:n)
+    jpeghint  enable jpeg loading optimization [char]
+              (n:none y:enable default:n)
+    info      add transformation description to HTTP Header [number]
+              (0:none 1:add default:0)
+    p         pattern name(see below)
+    e         engine name(imlib2,imagemagick,dummy) [char]
+    sharpen   e=imlib2,sharpen=radius
+              e=imagemagick,sharpen=radius,sigma
+    unsharp   e=imagemagick,unsharp=radius,sigma,amount,threshold
+    blur      e=imlib2,blur=radius
+              e=imagemagick,blur=radius,sigma
+    -------------------------------------------------------------------
+    *1 of=gif is supported only when e=imagemagick
+    *2 inhexif is supported only when e=imlib2
+
+    TYPE OF VALUE
+    -------------------------------------------------------------------
+    coord   corrdinate. pixel, or percent by appending 'p'.
+    char    character
+    number  number
+    color   rrggbb or rrggbbaa. ffffff as white, 000000 as black.
+    -------------------------------------------------------------------
+
+* Pattern name
+
+You can use named pattern by using SmallLightPatternDefine directive. This
+will reduce length and complexity of your URI.
+
+  SmallLightPatternDefine <PATTERN_NAME> <PATTERN STRING>
+
+Some examples here.
+
+  SmallLightPatternDefine THUMB_SMALL sx=5p,sy=5p,sw=90p,sh=90p,dw=40,dh=40,da=l,cw=40,ch=40,cc=ffffff,q=80,of=jpeg
+  SmallLightPatternDefine THUMB_MEDIUM sx=5p,sy=5p,sw=90p,sh=90p,dw=96,dh=96,da=l,cw=96,ch=96,cc=ffffff,q=80,of=jpeg
+  SmallLightPatternDefine THUMB_LARGE sx=5p,sy=5p,sw=90p,sh=90p,dw=200,dh=200,da=l,cw=200,ch=200,cc=ffffff,q=80,of=jpeg
+
+To use named pattern, simply small_light(p=PATTERN_NAME). The pattern could
+be overridden by patterns followed.
+
+  small_light(p=THUMB_SMALL)
+
+ OR
+
+  small_light(p=THUMB_SMALL,q=80) * 'q' will be overridden to 80.
+
