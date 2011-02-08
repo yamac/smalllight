@@ -4,20 +4,25 @@ mod_small_light - Dynamic image transformation module for Apache2
 The mod_small_light provides a dynamic image transformation.
 
 
+Build Environment
+-----------------
+
+Supported Platforms: GNU/Linux, and other operating systems support GCC.
+
+
 Build
 -----
 
-Simply run the configure script for analyzing your environment automatically.
+Simply run the configure script with --with-apxs option for analyzing your
+environment automatically.
 
- ./configure
- 
-Or you can specify the location of each imlib2-config, Wand-config and apxs
-by using --with options.
-(currentry '--with-apxs' is required)
+ ./configure --with-apxs=/usr/local/apache2/bin/apxs
+
+Or you can specify the location of each imlib2-config and Wand-config by
+using --with options.
 
  ./configure --with-imlib2-config=/usr/local/imlib2/bin/imlib2-config
  ./configure --with-Wand-config=/usr/local/ImageMagick/bin/Wand-config
- ./configure --with-apxs=/usr/local/apache2/bin/apxs
 
 Or if you don't have a plan to use imlib2 or Wand, you can specify --without
 options.
@@ -94,6 +99,8 @@ The pattern string specifies as KEY=VALUE format in small_light().
     of        output format(jpeg,png,tiff,gif) [char] *1
     inhexif   inherit EXIF [char] *2
               (n:none y:inherit default:n)
+    jpeghint  enable jpeg loading optimization [char]
+              (n:none y:enable default:n)
     info      add transformation description to HTTP Header [number]
               (0:none 1:add default:0)
     p         pattern name(see below)

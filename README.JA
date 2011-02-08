@@ -4,20 +4,23 @@ mod_small_light - Dynamic image transformation module for Apache2
 mod_small_lightを用いることでダイナミックな画像変換が可能です。
 
 
+開発環境
+--------
+
+対応OS: GNU/LinuxまたはGCCをサポートする他のOS。
+
+
 ビルド
 ------
 
-引数なしで configure スクリプトを実行して環境を自動認識します。
+configure スクリプトを--with-apxsオプションのみで実行して環境を自動認識します。
 
- ./configure
+ ./configure --with-apxs=/usr/local/apache2/bin/apxs
 
-または --with オプションで imlib2-config, Wand-config や apxs の場所を指定し
-ます。
-(現在 --with-apxs は必須です)
+または --with オプションで imlib2-config, Wand-config の場所を指定します。
 
  ./configure --with-imlib2-config=/usr/local/imlib2/bin/imlib2-config
  ./configure --with-Wand-config=/usr/local/ImageMagick/bin/Wand-config
- ./configure --with-apxs=/usr/local/apache2/bin/apxs
 
 またはもし imlib2 か Wand を使用しないのであれば、--without オプションを指定
 します。
@@ -29,7 +32,6 @@ mod_small_lightを用いることでダイナミックな画像変換が可能�
 
  make
  sudo make install
-
 
 
 使い方
@@ -95,10 +97,12 @@ Pattern文字列
     of        出力形式(jpeg,png,tiff,gif) [char] *1
     inhexif   変換前画像のEXIF情報を変換後画像に引き継ぐ [char] *2
               (n:引き継がない y:引き継ぐ 初期値:n)
+    jpeghint  jpegロードの最適化を有効化 [char] 
+              (n:無効 y:有効 初期値:n)
     info      詳細情報をHTTP Headerに出力 [number]
               (0:しない 1:する 初期値:0)
     p         パターン名(後述)
-    e         画像変換エンジン名(imlib2,imagemagick,gegl,dummy) [char]
+    e         画像変換エンジン名(imlib2,imagemagick,dummy) [char]
     sharpen   e=imlib2,sharpen=radius
               e=imagemagick,sharpen=radius,sigma
     unsharp   e=imagemagick,unsharp=radius,sigma,amount,threshold
