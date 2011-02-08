@@ -1,21 +1,27 @@
 AC_PREREQ(2.59)
-AC_INIT(mod_small_light, 1.0.2)
+AC_INIT(mod_small_light, 1.1.0)
 
 AC_PROG_CC
+
+# apxs
+AC_ARG_WITH(
+    apxs,
+    AC_HELP_STRING([--with-apxs=FILE], [location of the apxs program]),
+    [if test -x $withval; then
+        APXS=$withval
+        AC_SUBST(APXS)
+    else
+        AC_MSG_ERROR([apxs not found])
+    fi],
+    AC_MSG_ERROR([--with-apxs option must be specified])
+)
 
 # imlib2
 AC_MSG_CHECKING(whether to enable imlib2 support)
 AC_ARG_WITH(
     imlib2,
     AC_HELP_STRING([--without-imlib2], [disable imlib2 support]),
-    [
-        if test "$withval" = "no"; then
-            ENABLE_IMLIB2="no"
-        else
-            ENABLE_IMLIB2="yes"
-            IMLIB2_PREFIX="$withval"
-        fi
-    ],
+    ENABLE_IMLIB2=$withval,
     ENABLE_IMLIB2="auto"
 )
 AC_MSG_RESULT($ENABLE_IMLIB2)
@@ -24,26 +30,26 @@ if test "$ENABLE_IMLIB2" != "no"; then
     AC_ARG_WITH(
         imlib2-config,
         AC_HELP_STRING([--with-imlib2-config=FILE], [location of the imlib2-config program]),
-        IMLIB2_CONFIG="$withval",
-        IMLIB2_CONFIG="no"
+        [if test -x $withval; then
+            IMLIB2_CONFIG=$withval
+        else
+            AC_MSG_ERROR([imlib2-config not found])
+        fi]
     )
-    if test "$IMLIB2_CONFIG" = "no"; then
+    if test "$IMLIB2_CONFIG" = ""; then
         AC_PATH_PROG(
             IMLIB2_CONFIG,
             imlib2-config,
-            "no",
+            [],
             /bin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
         )
-    else
-        AC_CHECK_PROG(IMLIB2_CONFIG, imlib2-config)
+        if test "$IMLIB2_CONFIG" = ""; then
+            AC_MSG_ERROR([imlib2 not found])
+        fi
     fi
-    if test "$IMLIB2_CONFIG" = "no"; then
-        AC_MSG_ERROR([imlib2 not found])
-    else
-        AC_SUBST(IMLIB2_CONFIG)
-        CFLAGS_IMLIB2="-DENABLE_IMLIB2"
-        AC_SUBST(CFLAGS_IMLIB2)
-    fi
+    AC_SUBST(IMLIB2_CONFIG)
+    CFLAGS_IMLIB2="-DENABLE_IMLIB2"
+    AC_SUBST(CFLAGS_IMLIB2)
 fi
 
 # ImageMagick
@@ -51,15 +57,8 @@ AC_MSG_CHECKING(whether to enable Wand support)
 AC_ARG_WITH(
     Wand,
     AC_HELP_STRING([--without-Wand], [disable Wand support]),
-    [
-        if test "$withval" = "no"; then
-            ENABLE_WAND="no"
-        else
-            ENABLE_WAND="yes"
-            WAND_PREFIX="$withval"
-        fi
-    ],
-    ENABLE=WAND="auto"
+    ENABLE_WAND=$withval,
+    ENABLE_WAND="auto"
 )
 AC_MSG_RESULT($ENABLE_WAND)
 
@@ -67,39 +66,60 @@ if test "$ENABLE_WAND" != "no"; then
     AC_ARG_WITH(
         Wand-config,
         AC_HELP_STRING([--with-Wand-config=FILE], [location of the Wand-config program]),
-        WAND_CONFIG="$withval",
-        WAND_CONFIG="no"
+        [if test -x $withval; then
+            WAND_CONFIG=$withval
+        else
+            AC_MSG_ERROR([Wand-config not found])
+        fi]
     )
-    if test "$WAND_CONFIG" = "no"; then
+    if test "$WAND_CONFIG" = ""; then
         AC_PATH_PROG(
             WAND_CONFIG,
             Wand-config,
-            "no",
+            [],
             /bin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
         )
-    else
-        AC_CHECK_PROG(WAND_CONFIG, Wand-config)
+        if test "$WAND_CONFIG" = ""; then
+            AC_MSG_ERROR([Wand not found])
+        fi
     fi
-    if test "$WAND_CONFIG" = "no"; then
-        AC_MSG_ERROR([wand not found])
-    else
-        AC_SUBST(WAND_CONFIG)
-        CFLAGS_WAND="-DENABLE_WAND"
-        AC_SUBST(CFLAGS_WAND)
-    fi
+    AC_SUBST(WAND_CONFIG)
+    CFLAGS_WAND="-DENABLE_WAND"
+    AC_SUBST(CFLAGS_WAND)
 fi
 
-# apxs
+# libjpeg
+AC_MSG_CHECKING(whether to enable jpeg support)
 AC_ARG_WITH(
-    apxs,
-    AC_HELP_STRING([--with-apxs=FILE], [location of the apxs program]),
-    APXS="$withval",
-    APXS="no"
+    jpeg,
+    AC_HELP_STRING([--without-jpeg], [disable jpeg support]),
+    ENABLE_JPEG=$withval,
+    ENABLE_JPEG="auto"
 )
-if test "$APXS" = "no"; then
-    AC_MSG_ERROR([apxs not found])
+AC_MSG_RESULT($ENABLE_JPEG)
+
+if test "$ENABLE_JPEG" != "no"; then
+    HAVE_JPEG=yes
+    AC_CHECK_HEADER(
+        jpeglib.h,
+        [],
+        [HAVE_JPEG="no"]
+    )
+    AC_CHECK_LIB(
+        jpeg, jpeg_start_compress,
+        [],
+        [HAVE_JPEG="no"]
+    )
+    if test "$ENABLE_JPEG" != "auto" && test "$HAVE_JPEG" = "no"; then
+        AC_MSG_ERROR([libjpeg not found])
+    fi
+    if test "$HAVE_JPEG" = "yes"; then
+        CFLAGS_JPEG="-DENABLE_JPEG"
+        AC_SUBST(CFLAGS_JPEG)
+        LIBS_JPEG="-ljpeg"
+        AC_SUBST(LIBS_JPEG)
+    fi
 fi
-AC_SUBST(APXS)
 
 AC_OUTPUT(Makefile)
 
