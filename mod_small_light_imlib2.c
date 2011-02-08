@@ -5,6 +5,13 @@
 #include "mod_small_light.h"
 #include "mod_small_light_ext_jpeg.h"
 
+#define X_DISPLAY_MISSING // specifies without-x for Imlib2.h
+#include "Imlib2.h"
+#ifdef ENABLE_JPEG
+#include "jpeglib.h"
+#include <setjmp.h>
+#endif
+
 small_light_filter_prototype(imlib2);
 
 #ifndef ENABLE_IMLIB2
@@ -14,8 +21,213 @@ small_light_filter_dummy_template(imlib2);
 /*
 ** defines.
 */
-#define X_DISPLAY_MISSING // specifies without-x for Imlib2.h
-#include "Imlib2.h"
+
+#ifdef ENABLE_JPEG
+
+// this IMAGE_DIMENSION_OK was ported from Imlib2 loader.
+# define IMAGE_DIMENSIONS_OK(w, h) \
+   ( ((w) > 0) && ((h) > 0) && \
+     ((unsigned long long)(w) * (unsigned long long)(h) <= (1ULL << 29) - 1) )
+
+// Some ImLib2_JPEG structures or JPEGHandler functions were ported from Imlib2 loader.
+struct ImLib_JPEG_error_mgr {
+   struct jpeg_error_mgr pub;
+   sigjmp_buf          setjmp_buffer;
+};
+typedef struct ImLib_JPEG_error_mgr *emptr;
+
+static void
+_JPEGFatalErrorHandler(j_common_ptr cinfo)
+{
+   emptr               errmgr;
+
+   errmgr = (emptr) cinfo->err;
+/*   cinfo->err->output_message(cinfo);*/
+   siglongjmp(errmgr->setjmp_buffer, 1);
+   return;
+}
+
+static void
+_JPEGErrorHandler(j_common_ptr cinfo)
+{
+   emptr               errmgr;
+
+   errmgr = (emptr) cinfo->err;
+/*   cinfo->err->output_message(cinfo);*/
+/*   siglongjmp(errmgr->setjmp_buffer, 1);*/
+   return;
+}
+
+static void
+_JPEGErrorHandler2(j_common_ptr cinfo, int msg_level)
+{
+   emptr               errmgr;
+
+   errmgr = (emptr) cinfo->err;
+/*   cinfo->err->output_message(cinfo);*/
+/*   siglongjmp(errmgr->setjmp_buffer, 1);*/
+   return;
+   msg_level = 0;
+}
+
+// The load_jpeg function is based on Imlib2 loader.
+static int
+load_jpeg(
+    void **dest_data, int *width, int *height, const request_rec *r,
+    const char *filename, int hint_w, int hint_h)
+{
+   int                 w, h;
+   struct jpeg_decompress_struct cinfo;
+   struct ImLib_JPEG_error_mgr jerr;
+   FILE               *f;
+   apr_status_t rv;
+   apr_file_t *file;
+   apr_os_file_t os_file;
+
+   *dest_data = NULL;
+   *width = *height = 0;
+
+   rv = apr_file_open(
+       &file, filename, APR_READ | APR_BINARY | APR_BUFFERED,
+       APR_UREAD, r->pool);
+   if (rv != APR_SUCCESS) {
+       return 0;
+   }
+   rv = apr_os_file_get(&os_file, file);
+   if (rv != APR_SUCCESS) {
+       return 0;
+   }
+   f = fdopen(os_file, "rb");
+
+   cinfo.err = jpeg_std_error(&(jerr.pub));
+   jerr.pub.error_exit = _JPEGFatalErrorHandler;
+   jerr.pub.emit_message = _JPEGErrorHandler2;
+   jerr.pub.output_message = _JPEGErrorHandler;
+   if (sigsetjmp(jerr.setjmp_buffer, 1))
+     {
+        jpeg_destroy_decompress(&cinfo);
+        apr_file_close(file);
+        return 0;
+     }
+   jpeg_create_decompress(&cinfo);
+   jpeg_stdio_src(&cinfo, f);
+   jpeg_read_header(&cinfo, TRUE);
+   cinfo.do_fancy_upsampling = FALSE;
+   cinfo.do_block_smoothing = FALSE;
+
+   jpeg_start_decompress(&cinfo);
+   w = cinfo.output_width;
+   h = cinfo.output_height;
+   int denom;
+   denom = w / hint_w;
+   if (denom > h / hint_h) {
+       denom = h / hint_h;
+   }
+   denom = denom >= 1 ? denom : 1;
+   denom = denom <= 8 ? denom : 8;
+   jpeg_destroy_decompress(&cinfo);
+   fseek(f, 0, SEEK_SET);
+   jpeg_create_decompress(&cinfo);
+   jpeg_stdio_src(&cinfo, f);
+   jpeg_read_header(&cinfo, TRUE);
+   cinfo.do_fancy_upsampling = FALSE;
+   cinfo.do_block_smoothing = FALSE;
+   cinfo.scale_denom = denom;
+
+   jpeg_start_decompress(&cinfo);
+   DATA8              *ptr, *line[16], *data;
+   DATA32             *ptr2, *dest;
+   int                 x, y, l, i, scans, count, prevy;
+
+   w = cinfo.output_width;
+   h = cinfo.output_height;
+
+   if ((cinfo.rec_outbuf_height > 16) || (cinfo.output_components <= 0) ||
+       !IMAGE_DIMENSIONS_OK(w, h))
+     {
+        jpeg_destroy_decompress(&cinfo);
+        apr_file_close(file);
+        return 0;
+     }
+   data = apr_palloc(r->pool, w * 16 * cinfo.output_components);
+   if (!data)
+     {
+        jpeg_destroy_decompress(&cinfo);
+        apr_file_close(file);
+        return 0;
+     }
+   /* must set the im->data member before callign progress function */
+   ptr2 = dest = apr_palloc(r->pool, w * h * sizeof(DATA32));
+   if (!dest)
+     {
+        jpeg_destroy_decompress(&cinfo);
+        apr_file_close(file);
+        return 0;
+     }
+   count = 0;
+   prevy = 0;
+   if (cinfo.output_components > 1)
+     {
+        for (i = 0; i < cinfo.rec_outbuf_height; i++)
+           line[i] = data + (i * w * cinfo.output_components);
+        for (l = 0; l < h; l += cinfo.rec_outbuf_height)
+          {
+             jpeg_read_scanlines(&cinfo, line, cinfo.rec_outbuf_height);
+             scans = cinfo.rec_outbuf_height;
+             if ((h - l) < scans)
+                scans = h - l;
+             ptr = data;
+             for (y = 0; y < scans; y++)
+               {
+                  for (x = 0; x < w; x++)
+                    {
+                       *ptr2 =
+                           (0xff000000) | ((ptr[0]) << 16) | ((ptr[1]) <<
+                                                              8) |
+                           (ptr[2]);
+                       ptr += cinfo.output_components;
+                       ptr2++;
+                    }
+               }
+          }
+     }
+   else if (cinfo.output_components == 1)
+     {
+        for (i = 0; i < cinfo.rec_outbuf_height; i++)
+           line[i] = data + (i * w);
+        for (l = 0; l < h; l += cinfo.rec_outbuf_height)
+          {
+             jpeg_read_scanlines(&cinfo, line, cinfo.rec_outbuf_height);
+             scans = cinfo.rec_outbuf_height;
+             if ((h - l) < scans)
+                scans = h - l;
+             ptr = data;
+             for (y = 0; y < scans; y++)
+               {
+                  for (x = 0; x < w; x++)
+                    {
+                       *ptr2 =
+                           (0xff000000) | ((ptr[0]) << 16) | ((ptr[0]) <<
+                                                              8) |
+                           (ptr[0]);
+                       ptr++;
+                       ptr2++;
+                    }
+               }
+          }
+     }
+   jpeg_finish_decompress(&cinfo);
+   jpeg_destroy_decompress(&cinfo);
+   apr_file_close(file);
+
+   *dest_data = dest;
+   *width = w;
+   *height = h;
+
+   return 1;
+}
+
+#endif
 
 static const char temp_file_template[] = "small_light.XXXXXX";
 
@@ -125,24 +337,48 @@ apr_status_t small_light_filter_imlib2_output_data(
 
     // start image modifing.
     gettimeofday(&t2, NULL);
+    small_light_image_size_t sz;
+    small_light_calc_image_size(&sz, r, ctx, 10000.0, 10000.0);
 
     // load image.
     gettimeofday(&t21, NULL);
     Imlib_Image image_org;
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "imlib_load_image_immediately_without_cache(%s)", lctx->filename);
-    image_org = imlib_load_image_immediately_without_cache(lctx->filename);
-    if (image_org == NULL) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "imlib_load_image failed. uri=%s", r->uri);
-        r->status = HTTP_INTERNAL_SERVER_ERROR;
-        return APR_EGENERAL;
+#ifdef ENABLE_JPEG
+    if (sz.jpeghint_flg != 0) {
+        void *data;
+        int w, h;
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "load_jpeg");
+        if (!load_jpeg((void**)&data, &w, &h, r, lctx->filename, sz.dw, sz.dh)) {
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "load_jpeg_mem failed. uri=%s", r->uri);
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "imlib_load_image_immediately_without_cache(%s)", lctx->filename);
+            image_org = imlib_load_image_immediately_without_cache(lctx->filename);
+            if (image_org == NULL) {
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "imlib_load_image failed. uri=%s", r->uri);
+                r->status = HTTP_INTERNAL_SERVER_ERROR;
+                return APR_EGENERAL;
+            }
+        } else {
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "imlib_create_image_using_data(%d, %d, data)", w, h);
+            image_org = imlib_create_image_using_data(w, h, data);
+        }
+    } else {
+#endif
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "imlib_load_image_immediately_without_cache(%s)", lctx->filename);
+        image_org = imlib_load_image_immediately_without_cache(lctx->filename);
+        if (image_org == NULL) {
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "imlib_load_image failed. uri=%s", r->uri);
+            r->status = HTTP_INTERNAL_SERVER_ERROR;
+            return APR_EGENERAL;
+        }
+#ifdef ENABLE_JPEG
     }
+#endif
 
     // calc size.
     gettimeofday(&t22, NULL);
     imlib_context_set_image(image_org);
     double iw = (double)imlib_image_get_width();
     double ih = (double)imlib_image_get_height();
-    small_light_image_size_t sz;
     small_light_calc_image_size(&sz, r, ctx, iw, ih);
 
     // load exif.
@@ -151,8 +387,6 @@ apr_status_t small_light_filter_imlib2_output_data(
     if (sz.inhexif_flg != 0) {
         apr_mmap_t *org_image_mmap = NULL;
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "open mmap");
-        // open mmap.
-        // note that the mmap to be deleted automatically by apr, so we don't need to delete it manualy.
         rv = apr_mmap_create(&org_image_mmap, lctx->file, 0, lctx->image_len, APR_MMAP_READ, r->pool);
         if (rv != APR_SUCCESS) {
             ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "open mmap failed. uri=%s", r->uri);
