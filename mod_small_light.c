@@ -84,6 +84,26 @@ static small_light_pattern_t *small_light_find_pattern(request_rec *r, char *nam
     return ptn;
 }
 
+static int small_light_post_config(
+    apr_pool_t *pconf,
+    apr_pool_t *plog,
+    apr_pool_t *ptemp,
+    server_rec *s
+)
+{
+#if APR_HAS_THREADS
+    int mpm_threads;
+    ap_mpm_query(AP_MPMQ_MAX_THREADS, &mpm_threads);
+    if (mpm_threads >= 1) {
+        ap_log_error(APLOG_MARK, APLOG_CRIT, 0, s,
+            "small_light module only works with mpm prefork mode"
+        );
+        return HTTP_INTERNAL_SERVER_ERROR;
+    }
+#endif
+    return APR_SUCCESS;
+}
+
 static apr_status_t small_light_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 {
     request_rec *r = f->r;
@@ -248,6 +268,12 @@ static apr_status_t small_light_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 
 static void small_light_register_hooks(apr_pool_t *p)
 {
+    ap_hook_post_config(
+        small_light_post_config,
+        NULL,
+        NULL,
+        APR_HOOK_MIDDLE
+    );
     ap_register_output_filter(
         small_light_filter_name,
         small_light_filter,
@@ -298,11 +324,11 @@ void small_light_init_param(apr_table_t *prm)
     apr_table_set(prm, "bh", "");
     apr_table_set(prm, "bc", "000000");
     apr_table_set(prm, "pt", "n");
-    apr_table_set(prm, "rot", "0");
     apr_table_set(prm, "q", "0");
     apr_table_set(prm, "of", "jpeg");
     apr_table_set(prm, "info", "0");
     apr_table_set(prm, "inhexif", "n");
+    apr_table_set(prm, "jpeghint", "n");
 }
 
 int small_light_parse_uri_param(request_rec *r, char *param_str, const char *uri_str)
@@ -352,6 +378,14 @@ int small_light_parse_param(
         ptr1++;
     }
     return OK;
+}
+
+int small_light_parse_flag(request_rec *r, const char *str)
+{
+    if (str != NULL && str[0] == 'y') {
+        return 1;
+    }
+    return 0;
 }
 
 int small_light_parse_int(request_rec *r, const char *str)
@@ -423,11 +457,21 @@ int small_light_parse_color(request_rec *r, small_light_color_t *color, const ch
     return DECLINED;
 }
 
+void *small_light_alloc(apr_pool_t *pool, apr_size_t size)
+{
+    void *new_ptr = malloc(size);
+    return new_ptr;
+}
+
 void *small_light_realloc(apr_pool_t *pool, void *ptr, apr_size_t size, apr_size_t old_size)
 {
-    void *new_ptr = apr_palloc(pool, size);
-    memcpy(new_ptr, ptr, old_size);
+    void *new_ptr = realloc(ptr, size);
     return new_ptr;
+}
+
+void small_light_free(apr_pool_t *pool, void *ptr)
+{
+    free(ptr);
 }
 
 long small_light_timeval_diff(struct timeval *st, struct timeval *et)
@@ -449,7 +493,8 @@ apr_status_t small_light_receive_data(
     next_buff = (const char *)small_light_realloc(r->pool, *image, *image_len + data_len, *image_len);
     if (next_buff == NULL) {
         if (*image) {
-            free(*image);
+            small_light_free(r->pool, *image);
+            *image = NULL;
         }
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "memory allocation failed");
         ap_pass_brigade(f->next, (apr_bucket_brigade *)bb);
@@ -578,5 +623,8 @@ void small_light_calc_image_size(
         inhexif_flg = 0;
     }
     sz->inhexif_flg = inhexif_flg;
+
+    // get jpeghint option.
+    sz->jpeghint_flg = small_light_parse_flag(r, (char *)apr_table_get(ctx->prm, "jpeghint"));
 }
 
