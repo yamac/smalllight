@@ -1,0 +1,24 @@
+2011-02-07 ver 1.1.0
+
+	* core: Changed memory allocation flow.
+	* core: Now Apache will stop booting on mpm worker mode with error log.
+	        Currently this module does not work correctly on mpm worker mode.
+	* core: Removed initialization for not valid pattern string.
+	* imlib2: Added internal imlib2 loader for jpeg image if jpeg library is available.
+	* imlib2: Improved transformation speed for jpeg image if jpeg library is available.
+	* Wand: Improved transformation speed for jpeg image.
+	* Makefile: Added --with-apxs detection.
+	* Makefile: Added jpeg support.
+
+2011-01-17 ver 1.0.2
+
+	* core: Fixed issue for HEAD request.
+
+2011-01-12 ver 1.0.1
+
+	* Makefile: Fixed build issue.
+
+2010-12-27 ver 1.0.0: 
+
+	* Initial release.
+
