@@ -3,6 +3,7 @@
 #include "http_protocol.h"
 #include "http_log.h"
 #include "ap_config.h"
+#include "ap_mpm.h"
 #include "apr_file_io.h"
 #include "apr_file_info.h"
 #include "apr_mmap.h"
@@ -89,6 +90,7 @@ typedef struct {
     int pt_flg;
     int scale_flg;
     int inhexif_flg;
+    int jpeghint_flg;
 } small_light_image_size_t;
 
 typedef struct {
@@ -107,12 +109,15 @@ typedef struct {
 } small_light_module_ctx_t;
 
 // external functions.
+int small_light_parse_flag(request_rec *r, const char *str);
 int small_light_parse_int(request_rec *r, const char *str);
 double small_light_parse_double(request_rec *r, const char *str);
 int small_light_parse_coord(request_rec *r, small_light_coord_t *crd, const char *str);
 double small_light_calc_coord(small_light_coord_t *crd, double v);
 int small_light_parse_color(request_rec *r, small_light_color_t *color, const char *str);
+void *small_light_alloc(apr_pool_t *pool, apr_size_t size);
 void *small_light_realloc(apr_pool_t *pool, void *ptr, apr_size_t size, apr_size_t old_size);
+void small_light_free(apr_pool_t *pool, void *ptr);
 long small_light_timeval_diff(struct timeval *st, struct timeval *et);
 void small_light_calc_image_size(
     small_light_image_size_t *sz,
