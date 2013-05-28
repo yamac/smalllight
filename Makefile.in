@@ -9,7 +9,7 @@ ifneq ("@IMLIB2_CONFIG@","")
     IMLIB2_LIBS=`@IMLIB2_CONFIG@ --libs`
 endif
 ifneq ("@WAND_CONFIG@","")
-    WAND_INCLUDES=`@WAND_CONFIG@ --cppflags`
+    WAND_INCLUDES=`@WAND_CONFIG@ --cppflags | sed -e s/-fopenmp/-Wc,-fopenmp/`
     WAND_LIBS=`@WAND_CONFIG@ --libs`
 endif
 CFLAGS=@CFLAGS_IMLIB2@ @CFLAGS_WAND@ @CFLAGS_JPEG@
