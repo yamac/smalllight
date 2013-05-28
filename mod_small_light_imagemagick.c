@@ -75,7 +75,7 @@ apr_status_t small_light_filter_imagemagick_receive_data(
     const char *data,
     apr_size_t len)
 {
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, f->r, "small_light_filter_imagemagick_receive_data %d", len);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, f->r, "small_light_filter_imagemagick_receive_data %zd", len);
     small_light_module_ctx_t* ctx = (small_light_module_ctx_t*)v_ctx;
     small_light_module_imagemagick_ctx_t *lctx = ctx->lctx;
     return small_light_receive_data(&lctx->image, &lctx->image_len, f, bb, data, len);
@@ -286,7 +286,7 @@ apr_status_t small_light_filter_imagemagick_output_data(
     size_t sled_image_size;
     canvas_buff = MagickGetImageBlob(lctx->wand, &sled_image_size);
     sled_image = (const char *)apr_pmemdup(r->pool, canvas_buff, sled_image_size);
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "sled_image_size = %d", sled_image_size);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "sled_image_size = %zd", sled_image_size);
 
     // free buffer and wand.
     MagickRelinquishMemory(canvas_buff);

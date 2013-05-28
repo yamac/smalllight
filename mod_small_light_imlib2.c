@@ -270,7 +270,7 @@ apr_status_t small_light_filter_imlib2_receive_data(
     const char *data,
     apr_size_t len)
 {
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, f->r, "small_light_filter_imlib2_receive_data %d", len);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, f->r, "small_light_filter_imlib2_receive_data %zd", len);
 
     request_rec *r = f->r;
     small_light_module_ctx_t* ctx = (small_light_module_ctx_t*)v_ctx;
@@ -300,7 +300,7 @@ apr_status_t small_light_filter_imlib2_receive_data(
         if (num_writes < 0) {
             ap_log_rerror(
                 APLOG_MARK, APLOG_ERR, 0, r,
-                "an error occured while writing data to temporary file %d", num_writes);
+                "an error occured while writing data to temporary file %zd", num_writes);
             apr_file_close(lctx->file);
             lctx->file = NULL;
             r->status = HTTP_INTERNAL_SERVER_ERROR;
