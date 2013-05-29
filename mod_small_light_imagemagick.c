@@ -272,7 +272,7 @@ apr_status_t small_light_filter_imagemagick_output_data(
     double q = small_light_parse_double(r, (char *)apr_table_get(ctx->prm, "q"));
     if (q > 0.0) {
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
-            "MagickSetImageComressionQualty(wand, %f)", q);
+            "MagickSetImageCompressionQuality(wand, %f)", q);
         MagickSetImageCompressionQuality(lctx->wand, q);
     }
     char *of = (char *)apr_table_get(ctx->prm, "of");
