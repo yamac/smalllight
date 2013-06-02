@@ -68,7 +68,7 @@ apr_status_t small_light_filter_dummy_receive_data(
     const char *data,
     apr_size_t len)
 {
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, f->r, "small_light_filter_dummy_receive_data %d", len);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, f->r, "small_light_filter_dummy_receive_data %zd", len);
     small_light_module_ctx_t* ctx = (small_light_module_ctx_t*)v_ctx;
     small_light_module_dummy_ctx_t *lctx = ctx->lctx;
     return small_light_receive_data(&lctx->image, &lctx->image_len, f, bb, data, len);
