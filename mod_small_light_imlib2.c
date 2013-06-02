@@ -296,8 +296,8 @@ apr_status_t small_light_filter_imlib2_receive_data(
     // append image data to the temporary file.
     if (len > 0) {
         apr_size_t num_writes = len;
-        apr_file_write(lctx->file, data, &num_writes);
-        if (num_writes < 0) {
+        rv = apr_file_write(lctx->file, data, &num_writes);
+        if (rv != APR_SUCCESS) {
             ap_log_rerror(
                 APLOG_MARK, APLOG_ERR, 0, r,
                 "an error occured while writing data to temporary file %zd", num_writes);
