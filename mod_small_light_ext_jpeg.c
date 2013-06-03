@@ -67,7 +67,9 @@ int load_exif_from_memory(
             break;
         } else if (c == M_APP1 || c == M_COM) {
             // get length of app1.
-            unsigned int length = (*data++ << 8) + *(data++ + 1);
+            unsigned int length;
+            length =  (*data++ << 8);
+            length += *(data++ + 1);
 
             // validate length.
             if (length < 2) return 0;
@@ -85,7 +87,9 @@ int load_exif_from_memory(
             data += length - 2;
         } else {
             // get length of app1.
-            unsigned int length = (*data++ << 8) + *(data++ + 1);
+            unsigned int length;
+            length =  (*data++ << 8);
+            length += *(data++ + 1);
 
             // validate length.
             if (length < 2) return 0;
